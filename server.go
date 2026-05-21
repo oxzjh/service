@@ -36,7 +36,7 @@ func (s *Server) Register(rcvr any, name string) error {
 	if _, ok := s.services[name]; ok {
 		return errors.New("service already defined: " + name)
 	}
-	funcs := make(map[string]reflect.Value)
+	methods := make(map[string]*serviceMethod)
 	for i := 0; i < typ.NumMethod(); i++ {
 		m := typ.Method(i)
 		// Method must be exported.
@@ -69,12 +69,15 @@ func (s *Server) Register(rcvr any, name string) error {
 		if returnType := m.Type.Out(0); returnType != typeOfError {
 			continue
 		}
-		funcs[m.Name] = m.Func
+		if argType.Kind() == reflect.Pointer {
+			argType = argType.Elem()
+		}
+		methods[m.Name] = &serviceMethod{m.Func, argType, replyType.Elem()}
 	}
-	if len(funcs) == 0 {
+	if len(methods) == 0 {
 		return errors.New("type " + name + " has no exported methods of sutable type")
 	}
-	s.services[name] = &service{val, funcs}
+	s.services[name] = &service{val, methods}
 	return nil
 }
 

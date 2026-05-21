@@ -2,7 +2,6 @@ package service
 
 import (
 	"errors"
-	"reflect"
 	"strings"
 )
 
@@ -44,7 +43,7 @@ func (c *client) exec(p *packet) error {
 	if !ok {
 		return errors.New("can't find service: " + serviceName)
 	}
-	return service.call(methodName, reflect.ValueOf(p.args), reflect.ValueOf(p.reply))
+	return service.call(methodName, p.args, p.reply)
 }
 
 func NewClient(server *Server) IService {

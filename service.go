@@ -11,12 +11,18 @@ type IService interface {
 	Call(string, any, any) error
 }
 
-type service struct {
-	recv  reflect.Value
-	funcs map[string]reflect.Value
+type serviceMethod struct {
+	function  reflect.Value
+	argType   reflect.Type
+	replyType reflect.Type
 }
 
-func (s *service) call(method string, argv, replyv reflect.Value) (err error) {
+type service struct {
+	recv    reflect.Value
+	methods map[string]*serviceMethod
+}
+
+func (s *service) call(name string, arg, reply any) (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			log.Println(e)
@@ -24,12 +30,26 @@ func (s *service) call(method string, argv, replyv reflect.Value) (err error) {
 			err = errors.New("panic")
 		}
 	}()
-	function, ok := s.funcs[method]
+	method, ok := s.methods[name]
 	if !ok {
-		err = errors.New("can't find method: " + method)
+		err = errors.New("can't find method: " + name)
 		return
 	}
-	returnValues := function.Call([]reflect.Value{s.recv, argv, replyv})
+	var (
+		argv   reflect.Value
+		replyv reflect.Value
+	)
+	if arg == nil {
+		argv = reflect.New(method.argType)
+	} else {
+		argv = reflect.ValueOf(arg)
+	}
+	if reply == nil {
+		replyv = reflect.New(method.replyType)
+	} else {
+		replyv = reflect.ValueOf(reply)
+	}
+	returnValues := method.function.Call([]reflect.Value{s.recv, argv, replyv})
 	if errInterface := returnValues[0].Interface(); errInterface != nil {
 		return errInterface.(error)
 	}
