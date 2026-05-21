@@ -7,6 +7,10 @@ import (
 	"runtime/debug"
 )
 
+type IService interface {
+	Call(string, any, any) error
+}
+
 type service struct {
 	recv  reflect.Value
 	funcs map[string]reflect.Value

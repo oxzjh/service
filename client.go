@@ -6,49 +6,49 @@ import (
 	"strings"
 )
 
-type Call struct {
-	Method string        // The name of the service and method to call.
-	Args   any           // The argument to the function (*struct).
-	Reply  any           // The reply from the function (*struct).
-	Error  error         // After completion, the error status.
-	Done   chan struct{} // Receives *Call when Go is complete.
+type packet struct {
+	method string
+	args   any
+	reply  any
+	err    error
+	done   chan struct{}
 }
 
-type Client struct {
-	server *Server
-	callC  chan *Call
+type client struct {
+	server  *Server
+	packetC chan *packet
 }
 
-func (c *Client) Call(method string, args, reply any) error {
-	call := &Call{Method: method, Args: args, Reply: reply, Done: make(chan struct{}, 1)}
-	c.callC <- call
-	<-call.Done
-	return call.Error
+func (c *client) Call(method string, args, reply any) error {
+	p := &packet{method: method, args: args, reply: reply, done: make(chan struct{}, 1)}
+	c.packetC <- p
+	<-p.done
+	return p.err
 }
 
-func (c *Client) run() {
-	for call := range c.callC {
-		call.Error = c.exec(call)
-		close(call.Done)
+func (c *client) run() {
+	for p := range c.packetC {
+		p.err = c.exec(p)
+		close(p.done)
 	}
 }
 
-func (c *Client) exec(call *Call) error {
-	dot := strings.LastIndex(call.Method, ".")
+func (c *client) exec(p *packet) error {
+	dot := strings.LastIndex(p.method, ".")
 	if dot < 0 {
-		return errors.New("illegal method: " + call.Method)
+		return errors.New("illegal method: " + p.method)
 	}
-	serviceName := call.Method[:dot]
-	methodName := call.Method[dot+1:]
+	serviceName := p.method[:dot]
+	methodName := p.method[dot+1:]
 	service, ok := c.server.services[serviceName]
 	if !ok {
 		return errors.New("can't find service: " + serviceName)
 	}
-	return service.call(methodName, reflect.ValueOf(call.Args), reflect.ValueOf(call.Reply))
+	return service.call(methodName, reflect.ValueOf(p.args), reflect.ValueOf(p.reply))
 }
 
-func NewClient(server *Server) *Client {
-	c := &Client{server, make(chan *Call, 128)}
+func NewClient(server *Server) IService {
+	c := &client{server, make(chan *packet, 128)}
 	go c.run()
 	return c
 }
