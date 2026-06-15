@@ -51,7 +51,7 @@ func (s *service) call(name string, arg, reply any) (err error) {
 	}
 	returnValues := method.function.Call([]reflect.Value{s.recv, argv, replyv})
 	if errInterface := returnValues[0].Interface(); errInterface != nil {
-		return errInterface.(error)
+		err = errInterface.(error)
 	}
-	return nil
+	return
 }
