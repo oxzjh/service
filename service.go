@@ -55,3 +55,11 @@ func (s *service) call(name string, arg, reply any) (err error) {
 	}
 	return
 }
+
+func New(name string, rcvr any) (IService, error) {
+	server := NewServer()
+	if err := server.Register(rcvr, name); err != nil {
+		return nil, err
+	}
+	return NewClient(server), nil
+}
